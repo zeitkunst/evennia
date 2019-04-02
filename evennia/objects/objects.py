@@ -1880,7 +1880,8 @@ class DefaultCharacter(DefaultObject):
             puppeting this Object.
 
         """
-        self.msg("\nYou become |c%s|n.\n" % self.name)
+        # NOTE: commenting out extraneous info
+        #self.msg("\nYou become |c%s|n.\n" % self.name)
         self.msg((self.at_look(self.location), {'type':'look'}), options = None)
 
         def message(obj, from_obj):
