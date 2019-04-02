@@ -22,7 +22,7 @@ COMMAND_DEFAULT_CLASS = utils.class_from_module(settings.COMMAND_DEFAULT_CLASS)
 
 # limit symbol import for API
 __all__ = ("CmdUnconnectedConnect", "CmdUnconnectedCreate",
-           "CmdUnconnectedQuit", "CmdUnconnectedLook", "CmdUnconnectedHelp", "CmdUnconnectedDefaultUser")
+           "CmdUnconnectedQuit", "CmdUnconnectedLook", "CmdUnconnectedHelp", "CmdUnconnectedDefaultUser", "CmdUnconnectedGuest")
 
 MULTISESSION_MODE = settings.MULTISESSION_MODE
 CONNECTION_SCREEN_MODULE = settings.CONNECTION_SCREEN_MODULE
@@ -186,6 +186,39 @@ def create_normal_account(session, name, password):
 
     return account
 
+class CmdUnconnectedGuest(COMMAND_DEFAULT_CLASS):
+    """
+    Connect to the game as a guest.
+    """
+    key = "guest"
+    aliases = ["gu"]
+    locks = "cmd:all()"  # not really needed
+    arg_regex = r"\s.*?|$"
+
+    def func(self):
+        """
+        Uses the Django admin api. Note that unlogged-in commands
+        have a unique position in that their func() receives
+        a session object instead of a source_object like all
+        other types of logged-in commands (this is because
+        there is no object yet before the account has logged in)
+        """
+        session = self.caller
+
+        # check for too many login errors too quick.
+        address = session.address
+        if isinstance(address, tuple):
+            address = address[0]
+        if CONNECTION_THROTTLE.check(address):
+            # timeout is 5 minutes.
+            session.msg("|RYou made too many connection attempts. Try again in a few minutes.|n")
+            return
+
+        enabled, new_account = create_guest_account(session)
+        if new_account:
+            session.sessionhandler.login(session, new_account)
+        if enabled:
+            return
 
 class CmdUnconnectedConnect(COMMAND_DEFAULT_CLASS):
     """
@@ -275,7 +308,7 @@ class CmdUnconnectedDefaultUser(COMMAND_DEFAULT_CLASS):
             # timeout is 5 minutes.
             session.msg("|RYou made too many connection attempts. Try again in a few minutes.|n")
             return
-
+        
         new_account = create_default_account(session)
         if new_account:
             session.sessionhandler.login(session, new_account)
